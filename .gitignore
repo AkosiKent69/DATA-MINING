@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Database specific (if local DB files are created)
+*.sqlite
+*.db
+
+# Credentials and sensitive info (e.g., if config.py had tokens directly, but we rely on a separate API_TOKEN variable)
+# config.py is committed because it defines structure, but the actual values should be handled carefully.
+# For example, a local .env file could override config.py values for production.

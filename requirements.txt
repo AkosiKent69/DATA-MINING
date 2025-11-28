@@ -1,0 +1,7 @@
+pandas
+sqlalchemy
+requests
+scikit-learn
+matplotlib
+seaborn
+psycopg2-binary
