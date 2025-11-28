@@ -24,35 +24,40 @@ BEGIN
     SELECT
         rc.id,
         rc.name,
-        -- 1. Type Casting and Data Validation (elixirCost, maxLevel)
-        -- Ensure elixirCost and maxLevel are valid integers. Default to NULL if not.
-        CASE
-            WHEN rc.elixirCost IS NOT NULL AND rc.elixirCost ~ '^[0-9]+$' THEN CAST(rc.elixirCost AS INT)
-            ELSE NULL
-        END AS elixir_cost,
-        CASE
-            WHEN rc.maxLevel IS NOT NULL AND rc.maxLevel ~ '^[0-9]+$' THEN CAST(rc.maxLevel AS INT)
-            ELSE NULL
-        END AS max_level,
+        
+        -- 1. Type Casting (elixirCost, maxLevel)
+        -- Columns are "elixirCost" (double) and "maxLevel" (bigint)
+        -- We cast directly to INT. NULLs are preserved automatically.
+        CAST(rc."elixirCost" AS INT) AS elixir_cost,
+        CAST(rc."maxLevel" AS INT) AS max_level,
         
         -- 2. Categorical Normalization (rarity)
-        INITCAP(TRIM(rc.rarity)) AS rarity_cleaned, -- Capitalize first letter, remove whitespace
+        INITCAP(TRIM(rc.rarity)) AS rarity_cleaned, 
         
         -- 2. Categorical Normalization (arena)
-        TRIM(rc.arena) AS arena_cleaned, -- Remove whitespace
+        -- "arena" might not exist in the raw table if Pandas dropped it or schema changed.
+        -- Checking schema from previous step, 'arena' and 'description' were MISSING in raw_cards!
+        -- API structure might have changed. We should handle missing columns gracefully or use placeholders.
+        -- Let's check if 'arena' exists. If not, NULL.
+        
+        -- Wait, checking the 'check_schema.py' output again:
+        -- Columns: maxEvolutionLevel, id, maxLevel, elixirCost, icon_medium, rarity, name.
+        -- MISSING: arena, description.
+        
+        -- We must provide NULL for missing columns to avoid "column does not exist" error.
+        NULL AS arena_cleaned, 
         
         -- 4. Text Cleaning (description)
-        -- Remove multiple spaces, newlines, and trim
-        TRIM(REPLACE(REPLACE(rc.description, '  ', ' '), E'
-', ' ')) AS description_cleaned,
+        -- Description is also missing from raw_cards.
+        NULL AS description_cleaned,
         
         rc.icon_medium,
         
-        -- 3. Derived Feature Engineering (is_legendary, is_champion)
+        -- 3. Derived Feature Engineering
         (INITCAP(TRIM(rc.rarity)) = 'Legendary') AS is_legendary,
         (INITCAP(TRIM(rc.rarity)) = 'Champion') AS is_champion,
         
-        NOW() -- Set updated_at timestamp
+        NOW() 
     FROM
         raw_cards rc
     ON CONFLICT (id) DO UPDATE SET
@@ -66,18 +71,6 @@ BEGIN
         is_legendary = EXCLUDED.is_legendary,
         is_champion = EXCLUDED.is_champion,
         updated_at = EXCLUDED.updated_at;
-
-    -- NOTE: PostgreSQL doesn't have a direct equivalent to MySQL's stored procedures 
-    -- for IF-ELSE or complex loops unless they are within a PL/pgSQL function.
-    -- For more advanced transformations like imputing NULLs based on other data
-    -- (e.g., average elixirCost for a rarity), you'd expand this function using
-    -- PL/pgSQL blocks or CTEs.
-    
-    -- Example for NULL handling (if you wanted to impute elixir_cost based on average)
-    -- This would typically be a separate UPDATE statement after initial insert
-    -- UPDATE clean_cards
-    -- SET elixir_cost = (SELECT AVG(elixir_cost) FROM clean_cards WHERE rarity_cleaned = clean_cards.rarity_cleaned)
-    -- WHERE elixir_cost IS NULL;
 
 END;
 $$ LANGUAGE plpgsql;
